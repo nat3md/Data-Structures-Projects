@@ -20,7 +20,9 @@ public:
 	the count of items in the bag has increased by 1.
 	@param newEntry  The object to be added as a new entry.
 	@return  True if addition was successful, or false if not. */
-	virtual bool add(const T& newEntry) = 0;
+
+
+	
 
 	/** Removes one occurrence of a given entry from this bag,
 	if possible.
@@ -84,8 +86,8 @@ class LinkedBag : public BagInterface<T>
 {
 private:
 	Node<T>* headPtr; // Pointer to first node
-	int itemCount;  
-	
+	int itemCount;
+
 	// Current count of bag items
 	// Returns either a pointer to the node containing a given entry
 	// or the null pointer if the entry is not in the bag.
@@ -143,43 +145,39 @@ public:
 	{
 		return itemCount;
 	}  // end getCurrentSize
-	bool push(const T& item)
+	bool push(const T& newItem)
 	{
-		Node<T>* dataPtr = new Node<T>(item);
+		Node<T>* newNodePtr = new Node<T>(newItem, headPtr);
+		headPtr = newNodePtr;
+		newNodePtr = nullptr;
 
-		if (headPtr = nullptr)
+		return true;
+	}  // end push
 
-		{
-			dataPtr = headPtr;
-		}
-
-		else
-		{
-			dataPtr.getNext() = headPtr;
-			headPtr = dataPtr;
-		}
-		itemCount++;
-
-	}
-
-	T pop()
+	bool pop()
 	{
-		Node<T>* popPtr;
-
-		if (headPtr)
+		bool result = false;
+		if (!isEmpty())
 		{
-			T temp = headPtr.getItem();
-			popPtr= headPtr;
-			headPtr = headPtr.getNext();
-			delete popPtr;
-			itemCount--;
-			return temp;
-		}
+			// Stack is not empty; delete top
+			Node<T>* nodeToDeletePtr = headPtr;
+			headPtr = headPtr->getNext();
 
+			// Return deleted node to system
+			nodeToDeletePtr->setNext(nullptr);
+			delete nodeToDeletePtr;
+			nodeToDeletePtr = nullptr;
 
-	
+			result = true;
+		}  // end if
+
+		return result;
 	}  // end pop
+
+
+
 	
+
 	void clear()
 	{
 		Node<T>* nodeToDeletePtr = headPtr;
@@ -193,7 +191,7 @@ public:
 
 			nodeToDeletePtr = headPtr;
 		}  // end while
-		// headPtr is nullptr; nodeToDeletePtr is nullptr
+		   // headPtr is nullptr; nodeToDeletePtr is nullptr
 
 		itemCount = 0;
 	}  // end clear
@@ -241,18 +239,18 @@ public:
 
 	void output(LinkedBag<T>& bag)
 	{
-		
 
-		Node<T>* rover= new Node<T>();
+
+		Node<T>* rover = new Node<T>();
 		rover = bag.getHead();
-		
+
 		for (int i = 0; i < itemCount; i++)
 		{
 			cout << rover->getItem();
 			rover = rover->getNext();
 		}
-		
-		
+
+
 	}
 	friend ostream& operator << (ostream& stream, LinkedBag<T>& bag)
 	{
@@ -295,7 +293,7 @@ bool IsOperantor(char C)
 
 int operatorWeight(char a)
 {
-	int weight;
+	int weight =-1;
 
 	switch (a)
 	{
@@ -344,29 +342,55 @@ void enableDebug(bool bvalue)
 
 int main()
 {
-	
+
 	string inFix("a/b*c");
 	string postFix = "";
-	char ch;
+	LinkedBag<char> stack;
+	int linenumber = inFix.length();
 
-	for (int i = 0; i < inFix.length(); i++)
+	for (int i = 0; i < linenumber; i++)
 	{
 		if (IsOperantor(inFix[i]))
-		
-		
+		{
+			while (!stack.isEmpty() && stack.getHead()->getItem() != '(' &&
+				hashigherPrescedence(stack.getHead()->getItem(), inFix[i]))
+			{
+				postFix += stack.getHead()->getItem();
+				stack.pop();
+
+			}
+			stack.push(inFix[i]);
+		}
+		else if (IsOperand(inFix[i]))
+		{
+			postFix += inFix[i];
+		}
+
+		else if (inFix[i] == '(')
+		{
+			stack.push(inFix[i]);
+		}
+
+		else if (inFix[i] == ')')
+		{
+			while (!stack.isEmpty() && stack.getHead()->getItem() != '(') {
+				postFix += stack.getHead()->getItem();
+				stack.pop();
+			}
+			stack.pop();
+		}
 	}
 
+	while (!stack.isEmpty()) {
+		postFix += stack.getHead()->getItem();
+		stack.pop();
+	}
 
-
-
-
-
-
-
+	cout << postFix;
 
 	getchar();
-	
-	
-	//enableDebug(true);
+
+
+	enableDebug(true);
 
 }  // end main
