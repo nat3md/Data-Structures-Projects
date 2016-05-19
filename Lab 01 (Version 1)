@@ -1,192 +1,136 @@
-
 #include <vector>
 #include <iostream>
 #include <string>
+#include <fstream>
+#include <memory>
+#include <cstdlib>
+
 using namespace std;
+
 
 template<typename T>
 class BagInterface
 {
 public:
-	/** Gets the current number of entries in this bag.
-	@return The integer number of entries currently in the bag. */
+
 	virtual int getCurrentSize() const = 0;
 
-	/** Sees whether this bag is empty.
-	@return True if the bag is empty, or false if not. */
 	virtual bool isEmpty() const = 0;
 
-	/** Adds a new entry to this bag.
-	@post  If successful, newEntry is stored in the bag and
-	the count of items in the bag has increased by 1.
-	@param newEntry  The object to be added as a new entry.
-	@return  True if addition was successful, or false if not. */
-	virtual bool add(const T& newEntry) = 0;
-
-	/** Removes one occurrence of a given entry from this bag,
-	if possible.
-	@post  If successful, anEntry has been removed from the bag
-	and the count of items in the bag has decreased by 1.
-	@param anEntry  The entry to be removed.
-	@return  True if removal was successful, or false if not. */
-	virtual bool remove(const T& anEntry) = 0;
-
-	/** Removes all entries from this bag.
-	@post  Bag contains no items, and the count of items is 0. */
 	virtual void clear() = 0;
 
-	/** Counts the number of times a given entry appears in bag.
-	@param anEntry  The entry to be counted.
-	@return  The number of times anEntry appears in the bag. */
-	virtual int getFrequencyOf(const T& anEntry) const = 0;
-
-	/** Tests whether this bag contains a given entry.
-	@param anEntry  The entry to locate.
-	@return  True if bag contains anEntry, or false otherwise. */
-	virtual bool contains(const T& anEntry) const = 0;
 }; // end BagInterface
 
-template<typename T>
+
+/*********************************************************************
+Class Node
+**********************************************************************/
+
+
 template <typename T>
 class Node
 {
+
 private:
+	int letterCount;
 	T	item; // A data item
-	shared_ptr<T> next; // Pointer to next node
+	Node<T> * next; // Pointer to next node
+	Node<T> * prev;
+
 public:
-	Node() : next(nullptr)
+
+	Node() : letterCount(0), next(nullptr), prev(nullptr)
 	{
 	} // end default constructor
-	Node(const T& anItem) : item(anItem), next(nullptr)
+
+	Node(const T& anItem) : item(anItem), letterCount(0), next(nullptr), prev(nullptr)
 	{
 	} // end constructor
-	Node(const T& anItem, shared_ptr<T> nextNodePtr) :
-		item(anItem), next(nextNodePtr)
-	{
-	} // end constructor
-	void setItem(const T& anItem)
+
+	void setLetter(const T& anItem)
 	{
 		item = anItem;
 	} // end setItem
-	void Node<T>::setNext(shared_ptr<T> nextNodePtr)
+
+	void setNext(Node<T> * a)
 	{
-		next = nextNodePtr;
-	} // end setNext
-	T getItem() const
+		next = a;
+	}
+	void setPrev(Node<T> * a)
+	{
+		prev = a;
+	}
+
+	T getLetter() const
 	{
 		return item;
 	} // end getItem
-	shared_ptr<T> getNext() const
+
+	Node<T>* getNext() const
 	{
 		return next;
 	} // end getNext
+	Node<T> * getPrev() const
+	{
+		return prev;
+	}
+	int getLetterCount()
+	{
+		return letterCount;
+	}
+	void setLetterCount(int lCount)
+	{
+		letterCount = lCount;
+	}
+	void addCount()
+	{
+		letterCount++;
+	}
 }; // end Node
+
+
+
+/*********************************************************************
+Class LinkedBag
+**********************************************************************/
 
 template <typename T>
 class LinkedBag : public BagInterface<T>
 {
 private:
-	shared_ptr<T> headPtr; // Pointer to first node
-	int itemCount;           // Current count of bag items
-							 // Returns either a pointer to the node containing a given entry
-							 // or the null pointer if the entry is not in the bag.
+
+	Node<T>* headPtr; // Pointer to first node
+	Node<T>* rearPtr;
+	int itemCount;
+
 public:
-	LinkedBag() : headPtr(nullptr), itemCount(0)
+	LinkedBag() : headPtr(nullptr), itemCount(0), rearPtr(nullptr)
 	{
+
 	}  // end default constructor
-	LinkedBag(const LinkedBag<T>& aBag)
-	{
-		itemCount = aBag.itemCount;
-		shared_ptr<T> origChainPtr = aBag.headPtr;  // Points to nodes in original chain
 
-		if (origChainPtr == nullptr)
-			headPtr = nullptr;  // Original bag is empty
-		else
-		{
-			// Copy first node
-			headPtr = new Node<T>();
-			headPtr->setItem(origChainPtr->getItem());
 
-			// Copy remaining nodes
-			shared_ptr<T> newChainPtr = headPtr;      // Points to last node in new chain
-			origChainPtr = origChainPtr->getNext();     // Advance original-chain pointer
-
-			while (origChainPtr != nullptr)
-			{
-				// Get next item from original chain
-				T nextItem = origChainPtr->getItem();
-
-				// Create a new node containing the next item
-				shared_ptr<T> newNodePtr = new Node<T>(nextItem);
-
-				// Link new node to end of new chain
-				newChainPtr->setNext(newNodePtr);
-
-				// Advance pointer to new last node
-				newChainPtr = newChainPtr->getNext();
-
-				// Advance original-chain pointer
-				origChainPtr = origChainPtr->getNext();
-			}  // end while
-
-			newChainPtr->setNext(nullptr);              // Flag end of chain
-		}  // end if
-	}  // end copy constructor
 	~LinkedBag()
 	{
 		clear();
 	}  // end destructor
+
 	bool isEmpty() const
 	{
 		return itemCount == 0;
 	}  // end isEmpty
+
 	int getCurrentSize() const
 	{
 		return itemCount;
 	}  // end getCurrentSize
-	bool add(const T& newEntry)
-	{
-		// Add to beginning of chain: new node references rest of chain;
-		// (headPtr is null if chain is empty)        
-		shared_ptr<T> nextNodePtr = new Node<T>();
-		nextNodePtr->setItem(newEntry);
-		nextNodePtr->setNext(headPtr);  // New node points to chain
-										//   shared_ptr<T> nextNodePtr = new Node<T>(newEntry, headPtr); // alternate code
 
-		headPtr = nextNodePtr;          // New node is now first node
-		itemCount++;
-
-		return true;
-	}  // end add
-	bool remove(const T& anEntry)
-	{
-		shared_ptr<T> entryNodePtr = getPointerTo(anEntry);
-		bool canRemoveItem = !isEmpty() && (entryNodePtr != nullptr);
-		if (canRemoveItem)
-		{
-			// Copy data from first node to located node
-			entryNodePtr->setItem(headPtr->getItem());
-
-			// Delete first node
-			shared_ptr<T> nodeToDeletePtr = headPtr;
-			headPtr = headPtr->getNext();
-
-			// Return node to the system
-			nodeToDeletePtr->setNext(nullptr);
-			delete nodeToDeletePtr;
-			nodeToDeletePtr = nullptr;
-
-			itemCount--;
-		} // end if
-
-		return canRemoveItem;
-	}  // end remove
 	void clear()
 	{
-		shared_ptr<T> nodeToDeletePtr = headPtr;
+		Node<T>* nodeToDeletePtr = headPtr;
 		while (headPtr != nullptr)
 		{
-			headPtr = headPtr->getNe21xt();
+			headPtr = headPtr->getNext();
 
 			// Return node to the system
 			nodeToDeletePtr->setNext(nullptr);
@@ -194,55 +138,14 @@ public:
 
 			nodeToDeletePtr = headPtr;
 		}  // end while
-		   // headPtr is nullptr; nodeToDeletePtr is nullptr
 
 		itemCount = 0;
 	}  // end clear
-	int getFrequencyOf(const T& anEntry) const
-	{
-		int frequency = 0;
-		int counter = 0;
-		shared_ptr<T> curPtr = headPtr;
-		while ((curPtr != nullptr) && (counter < itemCount))
-		{
-			if (anEntry == curPtr->getItem())
-			{
-				frequency++;
-			} // end if
 
-			counter++;
-			curPtr = curPtr->getNext();
-		} // end while
-
-		return frequency;
-	}  // end getFrequencyOf
-	bool contains(const T& anEntry) const
-	{
-		return (getPointerTo(anEntry) != nullptr);
-	}  // end contains
-	shared_ptr<T> getPointerTo(const T& anEntry) const
-	{
-		bool found = false;
-		shared_ptr<T> curPtr = headPtr;
-
-		while (!found && (curPtr != nullptr))
-		{
-			if (anEntry == curPtr->getItem())
-				found = true;
-			else
-				curPtr = curPtr->getNext();
-		} // end while
-
-		return curPtr;
-	} // end getPointerTo
-	shared_ptr<T> getHead()
-	{
-		return headPtr;
-	}
 	friend ostream& operator << (ostream& stream, LinkedBag<T>& bag)
 	{
 		cout << "The bag contains " << bag.getCurrentSize() << " items:" << endl;
-		shared_ptr<T> rover = bag.getHead();
+		Node<T>* rover = bag.getHead();
 		while (rover != nullptr)
 		{
 			cout << rover->getItem();
@@ -251,123 +154,133 @@ public:
 		cout << endl << endl;
 		return stream;
 	}  // end displayBag
+
+	bool enqeue(const T& text);
+	bool adder(Node<T>* ptr, T ch);
+
+	void sort()
+	{
+		cout << "Sort Function." << endl;
+		int sortCount = 0;
+		cout << "Begin insertionSort " << endl;
+		insertionSortQueue(headPtr, sortCount);
+		cout << "End insertionSort" << endl;
+		cout << "End Sort Function." << endl;
+	}
+	bool insertionSortQueue(Node<T> * ptr, int sortCount)
+	{
+
+		while (ptr->getNext())
+		{
+
+			int loopCount = sortCount;
+			int tempLetterCount = 0;
+			char tempLetterHolder = ' ';
+			Node<T> * tempPtr = ptr->getNext();
+			Node<T> * positionPtr = ptr;
+
+			for (int i = 0; i <= loopCount; i++)
+			{
+				if (!ptr->getNext())
+				{
+					loopCount = -1;
+				}
+				else if (tempPtr->getLetterCount() > tempPtr->getPrev()->getLetterCount())
+				{
+					tempLetterHolder = tempPtr->getLetter();
+					tempLetterCount = tempPtr->getLetterCount();
+
+					tempPtr->setLetter(tempPtr->getPrev()->getLetter());
+					tempPtr->setLetterCount(tempPtr->getPrev()->getLetterCount());
+
+					tempPtr->getPrev()->setLetter(tempLetterHolder);
+					tempPtr->getPrev()->setLetterCount(tempLetterCount);
+
+					tempPtr = tempPtr->getPrev();
+				}
+				else
+					loopCount = -1;
+			}
+			sortCount++;
+			insertionSortQueue(positionPtr->getNext(), sortCount);
+
+			return true;
+		}
+		return false;
+
+
+	}
+	void output()
+	{
+		Node<T> * traverseNodePtr = headPtr;
+		while (traverseNodePtr != nullptr)
+		{
+			cout << traverseNodePtr->getLetter() << " : " << traverseNodePtr->getLetterCount() << endl;
+			traverseNodePtr = traverseNodePtr->getNext();
+		}
+	}
+
 }; // end LinkedBag
 
-class Airport
+
+
+/*********************************************************************
+Enqueue
+**********************************************************************/
+
+template<typename T>
+bool LinkedBag<T>::enqeue(const T& letter)
 {
-private:
-	string airportName;
-	string city;
-	string state;
-	string latitude;
-	string longitude;
-public:
-	Airport()
-	{
-		airportName = "";
-		city = "";
-		state = "";
-		latitude = "0.0";
-		longitude = "0.0";
-	}
-	Airport(string aName, string aCity, string aState, string aLatitude, string aLongitude)
-	{
-		airportName = aName;
-		city = aCity;
-		state = aState;
-		latitude = aLatitude;
-		longitude = aLongitude;
-	}
 
-	bool operator == (const Airport &B)
-	{
-		return (airportName == B.airportName);
-	}
-};
+	return adder(headPtr, letter);
+}
 
-void readIn()
+
+
+
+/*********************************************************************
+Adder
+**********************************************************************/
+template<typename T>
+bool LinkedBag<T>::adder(Node<T>* ptr, T ch)
 {
-	ifstream inFile;
-	inFile.open("Airports.csv");
-	
-
-	while (inFile.peek() != EOF)
+	if (ptr)
 	{
-		string airportName;
-		string city;
-		string state;
-		string lat;
-		string longitude;
-
-
-		getline(inFile, airportName, ',');
-		getline(inFile, city, ',');
-		getline(inFile, state, ',');
-		getline(inFile, lat, ',');
-		getline(inFile, longitude, '\n');
-
-		Airport obj(airportName, city, state, lat, longitude);
+		if (ch == ptr->getLetter())
+		{
+			ptr->addCount();
+			return true;
+		}
+		else
+		{
+			return adder(ptr->getNext(), ch);
+		}
 	}
-	
-	inFile.close();
-	enableDebug(true);
-  }
 
-
-void copyConstructorTester()
-{
-	LinkedBag<string> bag;
-	string items[] = { "zero", "one", "two", "three", "four", "five" };
-	for (int i = 0; i < 6; i++)
+	else
 	{
-		cout << "Adding " << items[i] << endl;
-		bool success = bag.add(items[i]);
-		if (!success)
-			cout << "Failed to add " << items[i] << " to the bag." << endl;
+
+		Node<T> * nuNode = new Node<T>(ch);
+
+		if (itemCount == 0)
+		{
+			headPtr = nuNode;
+			rearPtr = nuNode;
+		}
+
+		else
+		{
+			nuNode->setPrev(rearPtr);
+			rearPtr->setNext(nuNode);
+			rearPtr = nuNode;
+			nuNode->addCount();
+		}
+		itemCount++;
+
+		return true;
 	}
-	cout << bag;
+}
 
-	LinkedBag<string> copyOfBag(bag);
-	cout << "Copy of bag: ";
-	cout << copyOfBag;
-
-	cout << "The copied bag: ";
-	cout << bag;
-}  // end copyConstructorTester
-
-void bagTester()
-{
-	LinkedBag<string> bag;
-	cout << "Testing the Link-Based Bag:" << endl;
-	cout << "isEmpty: returns " << bag.isEmpty()
-		<< "; should be 1 (true)" << endl;
-	cout << bag;
-
-	string items[] = { "one", "two", "three", "four", "five", "one" };
-	cout << "Add 6 items to the bag: " << endl;
-	for (int i = 0; i < 6; i++)
-	{
-		bag.add(items[i]);
-	}  // end for
-
-	cout << bag;
-	cout << "isEmpty: returns " << bag.isEmpty() << "; should be 0 (false)" << endl;
-	cout << "getCurrentSize: returns " << bag.getCurrentSize() << "; should be 6" << endl;
-	cout << "Try to add another entry: add(\"extra\") returns " << bag.add("extra") << endl;
-	cout << "contains(\"three\"): returns " << bag.contains("three") << "; should be 1 (true)" << endl;
-	cout << "contains(\"ten\"): returns " << bag.contains("ten") << "; should be 0 (false)" << endl;
-	cout << "getFrequencyOf(\"one\"): returns " << bag.getFrequencyOf("one") << " should be 2" << endl;
-	cout << "remove(\"one\"): returns " << bag.remove("one") << "; should be 1 (true)" << endl;
-	cout << "getFrequencyOf(\"one\"): returns " << bag.getFrequencyOf("one") << " should be 1" << endl;
-	cout << "remove(\"one\"): returns " << bag.remove("one") << "; should be 1 (true)" << endl;
-	cout << "remove(\"one\"): returns " << bag.remove("one") << "; should be 0 (false)" << endl;
-	cout << endl;
-	cout << bag;
-	cout << "After clearing the bag, ";
-	bag.clear();
-
-	cout << "isEmpty: returns " << bag.isEmpty() << "; should be 1 (true)" << endl;
-}  // end bagTester
 
 void enableDebug(bool bvalue)
 {
@@ -385,12 +298,38 @@ void enableDebug(bool bvalue)
 	_CrtSetDbgFlag(tmpFlag);
 }
 
-void main()
-{
-	
-	ifstream inFile;
+/*********************************************************************
+Main
+**********************************************************************/
 
-	
+int main()
+{
 	enableDebug(true);
-	
+	char b;
+	string a;
+	ifstream infile;
+	infile.open("Speech.txt");
+	LinkedBag<char> bag;
+
+	if (infile.is_open())
+	{
+		while (!infile.eof())
+		{
+			getline(infile, a);
+			for (int i = 0; i < a.length(); i++)
+			{
+				b = tolower(a[i]);
+				bag.enqeue(b);
+			}
+		}
+	}
+	else
+
+	{
+		cout << "No file found\n";
+	}
+
+	bag.output();
+	bag.sort();
+	bag.output();
 }  // end main
