@@ -1,338 +1,410 @@
-#include <vector>
-#include <iostream>
+#include <stdexcept>
 #include <string>
+#include <iostream>
+#include <unordered_map>
 #include <fstream>
-#include <memory>
-#include <cstdlib>
 
 using namespace std;
 
+static const int DEFAULT_SIZE = 101;
 
-template<typename T>
-class BagInterface
+
+template <typename Key, typename Value>
+class Entry
 {
-public:
-	virtual int getCurrentSize() const = 0;
-	virtual bool isEmpty() const = 0;
-
-}; // end BagInterface
-
-
-/*********************************************************************
-Class Node
-**********************************************************************/
-
-
-template <typename T>
-class Node
-{
-
 private:
-	int letterCount;
-	T	item; // A data item
-	shared_ptr<Node<T>> left; // Pointer to next node
-	shared_ptr<Node<T>> right;
-	shared_ptr<Node<T>> parent;
+	Value item;
+	Key searchKey;
 public:
-
-	Node() : letterCount(0), left(nullptr), right(nullptr), parent(nullptr)
-	{
-	} // end default constructor
-
-	Node(const T& anItem) : item(anItem), letterCount(0), left(nullptr), right(nullptr), parent(nullptr)
-	{
-	} // end constructor
-
-	void setLetter(const T& anItem)
-	{
-		item = anItem;
-	} // end setItem
-
-	void setLeft(shared_ptr<Node<T>> a)
-	{
-		left = a;
-	}
-	void setRight(shared_ptr<Node<T>> a)
-	{
-		right = a;
-	}
-	void setParent(shared_ptr<Node<T>> a)
-	{
-		parent = a;
-	}
-
-	T getLetter() const
+	Entry() { }
+	Entry(Value newEntry, Key itemKey) :item(newEntry), searchKey(itemKey) { }
+	Value getItem() const
 	{
 		return item;
-	} // end getLetter
-
-	shared_ptr<Node<T>> getRight() const
-	{
-		return right;
-	} // end getNext
-	shared_ptr<Node<T>> getLeft() const
-	{
-		return left;
 	}
-	int getLetterCount()
+	Key getKey() const
 	{
-		return letterCount;
+		return searchKey;
 	}
-	void setLetterCount(int lCount)
+	void setItem(const Value& newEntry)
 	{
-		letterCount = lCount;
+		item = newEntry;
 	}
-	void addCount()
+	void setKey(const Key& itemKey)
 	{
-		letterCount++;
+		searchKey = itemKey;
 	}
-}; // end Node
+	bool operator==(const Entry<Key, Value>& rightHandItem) const
+	{
+		return (searchKey == rightHandItem.getKey());
+	}  // end operator==
+	bool operator>(const Entry<Key, Value>& rightHandItem) const
+	{
+		return (searchKey > rightHandItem.getKey());
+	}
 
+}; // end Entry
 
-
-/*********************************************************************
-Class Tree
-**********************************************************************/
-
-template <typename T>
-class Tree : public BagInterface<T>
+template<typename Key, typename Value>
+class HashedEntry : public Entry<Key, Value>
 {
 private:
-
-	shared_ptr<Node<T>> root; // Pointer to first node
-	int itemCount;
-
+	HashedEntry<Key, Value>* nextPtr;
 public:
-	Tree() :root(nullptr), itemCount(0)
+	HashedEntry()
 	{
+		Entry<Key, Value>();
+		nextPtr = nullptr;
+	}  // end 
+	HashedEntry(Value newEntry, Key itemKey)
+	{
+		Entry<Key, Value>::setItem(newEntry);
+		Entry<Key, Value>::setKey(itemKey);
+		nextPtr = nullptr;
+	}  // end 
+	HashedEntry(Value newEntry, Key itemKey, HashedEntry<Key, Value>* nextEntryPtr)
+	{
+		Entry<Key, Value>::setItem(newEntry);
+		Entry<Key, Value>::setKey(itemKey);
+		nextPtr = nextEntryPtr;
+	}  // end 
 
-	}  // end default constructor
+	void setNext(HashedEntry<Key, Value>* nextEntryPtr)
+	{
+		nextPtr = nextEntryPtr;
+	}  // end 
+	HashedEntry<Key, Value>* HashedEntry<Key, Value>::getNext() const
+	{
+		return nextPtr;
+	}  // end 
+}; // end HashedEntry
 
-	
+template<typename Key, typename Value>
+class DictionaryInterface
+{
+public:
+	/** Sees whether this dictionary is empty.
+	@return True if the dictionary is empty;
+	otherwise returns false. */
+	virtual bool isEmpty() const = 0;
+
+	/** Gets the number of items in this dictionary.
+	@return The number of items in the dictionary. */
+	virtual int getNumberOfItems() const = 0;
+
+	/** Inserts an item into this dictionary according to the item’s search key.
+	@pre  The search key of the new item differs from all search
+	keys presently in the dictionary.
+	@post  If the insertion is successful, newItem is in its
+	proper position within the dictionary.
+	@param searchKey  The search key associated with the item to be inserted.
+	@param newItem  The item to add to the dictionary.
+	@return  True if item was successfully added, or false if not. */
+	virtual bool add(const Key& searchKey, const Value& newItem) = 0;
+
+	/** Removes an item with the given search key from this dictionary.
+	@post  If the item whose search key equals searchKey existed in the dictionary,
+	the item was removed.
+	@param searchKey  The search key of the item to be removed.
+	@return  True if the item was successfully removed, or false if not. */
+	virtual bool remove(const Key& searchKey) = 0;
+
+	/** Removes all entries from this dictionary. */
+	virtual void clear() = 0;
+
+	/** Retrieves an item with a given search key from a dictionary.
+	@post  If the retrieval is successful, the item is returned.
+	@param searchKey  The search key of the item to be retrieved.
+	@return  The item associated with the search key.
+	@throw  NotFoundException if the item does not exist. */
+	virtual Value getItem(const Key& searchKey) ;
+
+	/** Sees whether this dictionary contains an item with a given
+	search key.
+	@post  The dictionary is unchanged.
+	@param searchKey  The search key of the item to be retrieved.
+	@return  True if an item with the given search key exists in the dictionary. */
+	virtual bool contains(const Key& searchKey) const = 0;
+
+	/** Traverses this dictionary and calls a given client function once for each item.
+	@post  The given function’s action occurs once for each item in the
+	dictionary and possibly alters the item.
+	@param visit A client function. */
+	virtual void traverse(void visit(Value&)) const = 0;
+}; // end DictionaryInterface
+
+template <typename Key, typename Value>
+class HashedDictionary : public DictionaryInterface<Key, Value>
+{
+private:
+	HashedEntry<Key, Value>** hashTable;  // Array of pointers to entries
+	int itemCount;                               // Count of dictionary entries
+	int hashTableSize;                           // Table size must be prime
+	void destroyDictionary()
+	{
+		for (int i = 0; i < hashTableSize; i++)
+		{
+			// If there are hashed entries at this location,
+			// we need to delete them
+			while (hashTable[i] != nullptr)
+			{
+				HashedEntry<Key, Value>* entryToRemovePtr = hashTable[i];
+				hashTable[i] = hashTable[i]->getNext();
+				delete entryToRemovePtr;
+				entryToRemovePtr = nullptr;  // For safety
+			}  // end while
+		}  // end for
+
+		itemCount = 0;
+	}  // end destroyDictionary
+	int getHashIndex(const Key& key) const
+	{
+		// We are creating a hash function type called hashFunction that hashes "Key."
+		// First we create an an unordered_map object for our Key and Value
+		unordered_map<Key, Value> mapper;
+
+		// Then we call the hash_function method to return the hash function
+		// for the Key and assign it to 'hashFunction'
+		unordered_map<Key, Value>::hasher hashFunction = mapper.hash_function();
+
+		// static_cast needed since hashFunction returns an unsigned long
+		return static_cast<int>(hashFunction(key) % hashTableSize);
+
+	} // end getHashIndex
+	int getNextPrime(int number) const
+	{
+		bool foundPrime = false;
+		if ((number % 2) == 0)
+			number++;
+
+		while (!foundPrime)
+		{
+			if ((number % 5 == 0) || !isPrime(number))
+			{
+				number = number + 2;
+			}
+			else
+				foundPrime = true;
+		}  // end
+
+		return number;
+	}  // end getNextPrime
+	bool isPrime(int number) const
+	{
+		bool isPrimeNumber = true;                 // Assume prime, prove otherwise
+
+		if ((number == 2) || (number == 3))        // Smallest primes
+			isPrimeNumber = true;
+		else
+		{
+			if ((number % 2 == 0) || (number < 2))  // Even number or ineligible
+				isPrimeNumber = false;
+			else
+			{
+				int root = sqrt(number);             // Limit of search
+				int i = 3;
+				do
+				{
+					if (number % i == 0)               // Not prime
+						isPrimeNumber = false;
+					else
+						i = i + 2;
+
+				} while ((isPrimeNumber == true) && (i <= root));
+			}  // end if
+		}  // endif
+
+		return isPrimeNumber;
+	}  // end isPrime
+public:
+	HashedDictionary() : itemCount(0), hashTableSize(DEFAULT_SIZE)
+	{
+		hashTable = new HashedEntry<Key, Value>*[DEFAULT_SIZE];
+		for (int i = 0; i < DEFAULT_SIZE; i++)
+			hashTable[i] = nullptr;
+	}  // end 
+	HashedDictionary(int maxNumberOfEntries) : itemCount(0)
+	{
+		hashTableSize = getNextPrime(maxNumberOfEntries);
+		hashTable = new HashedEntry<Key, Value>*[hashTableSize];
+		for (int i = 0; i < maxNumberOfEntries; i++)
+			hashTable[i] = nullptr;
+	}  // end 
+	HashedDictionary(const HashedDictionary<Key, Value>& dict) : itemCount(dict.itemCount), hashTableSize(dict.hashTableSize)
+	{
+		hashTable = new HashedDictionary<Key, Value>*[dict.maxItems];
+		for (int index = 0; index < dict.itemCount; index++)
+		{
+			hashTable[index] = dict.hashTable[index];
+		}  // end for
+	}  // end 
+	~HashedDictionary()
+	{
+		destroyDictionary();
+	} // end destructor
 	bool isEmpty() const
 	{
-		return itemCount == 0;
-	}  // end isEmpty
-
-	int getCurrentSize() const
+		return (itemCount == 0);
+	} // end isEmpty
+	int getNumberOfItems() const
 	{
 		return itemCount;
-	}  // end getCurrentSize
-	
-	friend ostream& operator << (ostream& stream, Tree<T>& bag)
+	} // end getNumberOfItems
+	void clear()
 	{
-		cout << "The bag contains " << bag.getCurrentSize() << " items:" << endl;
-		shared_ptr<Node<T>> rover = bag.getHead();
-		while (rover != nullptr)
-		{
-			cout << rover->getLetter();
-			rover = rover->getNext();
-		}  // end for
-		cout << endl << endl;
-		return stream;
-	}  // end displayBag
-
-	bool letterChecker(const T& letter);
-	bool insert(const T& letter);
-	bool treeDelete(const T& letter);
-	void output()
+		destroyDictionary();
+	} // end clear
+	bool add(const Key& searchKey, const Value& newItem)
 	{
-		InOrder(root);
-		cout << itemCount++;
-	}
-	void InOrder(shared_ptr<Node<T>> root)
-	{
-		if (root != NULL)
+		// Create entry to add to dictionary
+		HashedEntry<Key, Value>* entryToAddPtr = new HashedEntry<Key, Value>(newItem, searchKey);
+
+		// Compute the hashed index into the array
+		int itemHashIndex = getHashIndex(searchKey);
+
+		// Add the entry to the chain at itemHashIndex
+		if (hashTable[itemHashIndex] == nullptr)
 		{
-
-			InOrder(root->getLeft());
-			cout << root->getLetter()  << endl;
-			InOrder(root->getRight());
-		}
-	}
-
-}; // end Tree
-
-
-/*********************************************************************
-Insert
-**********************************************************************/
-
-template<typename T>
-bool Tree<T>::letterChecker(const T& letter)
-{
-	shared_ptr<Node<T>> temp = nullptr;
-	temp = root;
-
-	while (temp != nullptr)
-	{
-		
-		if (temp->getLetter() == letter)
-		{
-			temp->addCount();
-			
-			return true;
-		}
-		
-		else if (temp->getLetter() > letter)
-		{
-			temp = temp->getLeft();
+			hashTable[itemHashIndex] = entryToAddPtr;
 		}
 		else
 		{
-			temp = temp->getRight();
-		}
-	}
-	
-	insert(letter);
-	itemCount++;
-	return true;
-}
+			entryToAddPtr->setNext(hashTable[itemHashIndex]);
+			hashTable[itemHashIndex] = entryToAddPtr;
+		} // end if
 
-template<typename T>
-bool Tree<T>::insert(const T& letter)
-{
-	
-	shared_ptr<Node<T>> temp = nullptr ;
-	shared_ptr<Node<T>> traverseNode=root ;
-	shared_ptr<Node<T>> nuNode(new Node<T>(letter));
-
-
-	while ( traverseNode != nullptr)
+		return true;
+	} // end add
+	bool remove(const Key& searchKey)
 	{
-		temp = traverseNode;
+		bool itemFound = false;
 
-		if (nuNode->getLetter() < traverseNode->getLetter())
+		// Compute the hashed index into the array
+		int itemHashIndex = getHashIndex(searchKey);
+		if (hashTable[itemHashIndex] != nullptr)
 		{
-			traverseNode = traverseNode->getLeft();
-		}
-		else
-		{
-			traverseNode = traverseNode->getRight();
-		}
-	}
-	
-	nuNode->setParent(temp);
-
-	if (temp == nullptr)
-	{
-		root = nuNode;
-	}
-
-	else if (nuNode->getLetter() < temp->getLetter())
-	{
-		temp->setLeft(nuNode);
-	}
-
-	else
-	{
-		temp->setRight(nuNode);
-	}
-	return true;
-
-}
-
-/*********************************************************************
-Delete
-**********************************************************************/
-
-template<typename T>
-bool Tree:: deleter()
-{
-	shared_ptr<Node<T>> temp;
-	
-	if root->getLeft() == nullptr;
-	{
-		translplant(root, root->getRight());
-	}
-
-	else if (root->right == nullptr)
-	{
-		transplant(root, root->getLeft());
-	}
-	else
-	{
-		temp = TreeMinmum(root->getRight());
-		if (temp.parent != root)
-		{
-			transplant(temp, temp->getRight());
-			temp->getRight() = temp->getRight;
-			temp->getRight->getParent() = temp;
-		}
-	}
-}
-
-template<typename T>
-{
-
-}
-//template<typename T>
-//bool Tree<T>::delete(shared_ptr<Node<T>> deleteNode)
-//{
-//	if deletNode->getLeft == nullptr;
-//	{
-//		Transplant(deleteNode, deleteNode->getRight());
-//	}
-//
-//	else if deleteNode->getRight == nullptr;
-//	{
-//		Transplant(deletNode, deleteNode->getl)
-//	}
-//}
-
-
-
-void enableDebug(bool bvalue)
-{
-	if (!bvalue) return;
-
-	int tmpFlag = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
-
-	// Turn on leak-checking bit.
-	tmpFlag |= _CRTDBG_LEAK_CHECK_DF;
-
-	// Turn off CRT block checking bit.
-	tmpFlag &= ~_CRTDBG_CHECK_CRT_DF;
-
-	// Set flag to the new value.
-	_CrtSetDbgFlag(tmpFlag);
-}
-
-/*********************************************************************
-Main
-**********************************************************************/
-
-int main()
-{
-	enableDebug(true);
-	char b;
-	string a;
-	ifstream infile;
-	infile.open("Speech.txt");
-	Tree<char> bag;
-
-	if (infile.is_open())
-	{
-		while (!infile.eof())
-		{
-			getline(infile, a);
-			for (int i = 0; i < a.length(); i++)
+			// Special case - first node has target
+			if (searchKey == hashTable[itemHashIndex]->getKey())
 			{
-				b = tolower(a[i]);
-				bag.letterChecker(b);
+				HashedEntry<Key, Value>* entryToRemovePtr =
+					hashTable[itemHashIndex];
+				hashTable[itemHashIndex] = hashTable[itemHashIndex]->getNext();
+				delete entryToRemovePtr;
+				entryToRemovePtr = nullptr; // For safety
+				itemFound = true;
 			}
+			else // Search the rest of the chain
+			{
+				HashedEntry<Key, Value>* prevPtr = hashTable[itemHashIndex];
+				HashedEntry<Key, Value>* curPtr = prevPtr->getNext();
+				while ((curPtr != nullptr) && !itemFound)
+				{
+					// Found item in chain so remove that node
+					if (searchKey == curPtr->getKey())
+					{
+						prevPtr->setNext(curPtr->getNext());
+						delete curPtr;
+						curPtr = nullptr; // For safety
+						itemFound = true;
+					}
+					else // Look at next entry in chain
+					{
+						prevPtr = curPtr;
+						curPtr = curPtr->getNext();
+					} // end if
+				} // end while
+			} // end if
+		} // end if
+
+		return itemFound;
+	} // end remove
+	Value getItem(const Key& searchKey)
+	{
+		// Compute the hashed index into the array
+		int itemHashIndex = getHashIndex(searchKey);
+		HashedEntry<Key, Value>* chainPtr = hashTable[itemHashIndex];
+
+		// Short circuit evaluation is important here
+		while ((chainPtr != nullptr) && (searchKey != chainPtr->getKey()))
+		{
+			chainPtr = chainPtr->getNext();
+		} // end while 
+
+		if (chainPtr == nullptr)
+			throw NotFoundException("\n\nItem not found in Dictionary!\n\n");
+
+		return chainPtr->getItem();
+	} // end getItem
+	bool contains(const Key& searchKey) const
+	{
+		// Compute the hashed index into the array
+		int itemHashIndex = getHashIndex(searchKey);
+		HashedEntry<Key, Value>* chainPtr = hashTable[itemHashIndex];
+
+		// Short circuit evaluation is important here
+		while ((chainPtr != nullptr) && (searchKey != chainPtr->getKey()))
+		{
+			chainPtr = chainPtr->getNext();
+		} // end while 
+
+		return (chainPtr != nullptr);
+	} // end contains
+	void traverse(void visit(Value&)) const
+	{
+		// Simple because the array is sorted.
+		for (int index = 0; index<hashTableSize; index++)
+		{
+			// cout<<"\n Index: " << index << "  :"; // for testing
+			HashedEntry<Key, Value>* chainPtr = hashTable[index];
+			while (chainPtr != nullptr)
+			{
+				Value currentItem = chainPtr->getItem();
+				visit(currentItem);
+				chainPtr = chainPtr->getNext();
+			} // end while 
+		}  // end for 
+	}  //end traverse
+	Value operator[](Key key)
+	{
+		return getItem(key);
+	}
+}; // end HashedDictionary
+
+void displayKey(string& anItem)
+{
+	cout << "Displaying item - " << anItem << endl;
+}  // end display1
+
+void displayValue(int& anItem)
+{
+	cout << "Displaying item - " << anItem << endl;
+}  // end display2
+
+void main()
+{
+	ifstream inFile;
+	string product="";
+	string price = "";
+	HashedDictionary<string, string> bag;
+	
+	inFile.open("UProducts.csv");
+	
+	if (inFile.is_open())
+	{
+		while (!inFile.eof())
+		{
+		getline(inFile, product,',');
+		getline(inFile, price);
+		
+		bag.add(product, price);
+			
 		}
+
 	}
 	else
-
 	{
-		cout << "No file found\n";
+		cerr << "File Not found";
 	}
 
-	infile.close();
-	bag.output();
-
-	
+	getchar();
 }  // end main
- 
-
