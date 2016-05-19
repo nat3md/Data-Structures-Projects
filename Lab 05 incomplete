@@ -92,7 +92,7 @@ public:
 	@return The number of items in the dictionary. */
 	virtual int getNumberOfItems() const = 0;
 
-	/** Inserts an item into this dictionary according to the item’s search key.
+	/** Inserts an item into this dictionary according to the itemâ€™s search key.
 	@pre  The search key of the new item differs from all search
 	keys presently in the dictionary.
 	@post  If the insertion is successful, newItem is in its
@@ -127,7 +127,7 @@ public:
 	virtual bool contains(const Key& searchKey) const = 0;
 
 	/** Traverses this dictionary and calls a given client function once for each item.
-	@post  The given function’s action occurs once for each item in the
+	@post  The given functionâ€™s action occurs once for each item in the
 	dictionary and possibly alters the item.
 	@param visit A client function. */
 	virtual void traverse(void visit(Value&)) const = 0;
