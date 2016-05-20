@@ -1,0 +1,160 @@
+// Natnael Kebede
+// Proffessor Larkin 
+
+#include <cstdlib>
+#include <iostream>
+#include <string>
+#include <memory>
+#include<fstream>
+
+using namespace std;
+
+template<typename Key, typename Value>
+struct Pair
+{
+	Key key;
+	Value value;
+	void setKey(const Key& kee) { key = kee; }
+	void setValue(const Key& val) { value = val; }
+};
+
+template<typename Key, typename Value>
+class ArrayBag
+{
+private:
+	Pair<Key,Value>* pair;
+	ArrayBag<Key, Value> ** table;
+	int itemCount;
+	int maxItems;
+	int capacity;
+public:
+
+
+
+	ArrayBag() : itemCount(0), maxItems(0), capacity(100)
+	{
+		table = new ArrayBag<Key, Value>* [capacity];
+	}
+
+	ArrayBag(const Key& kee, const Value& val)
+	{
+		pair->setKey(kee);
+		pair->setValue(val);
+	}
+
+	bool add(const Key& kee, const Value& val)
+	{
+
+		ArrayBag<Key, Value>* nuEntry = new ArrayBag<Key, Value>(kee, val);
+		hashInsert(kee, nuEntry);
+		return true;
+	}
+
+	int hashInsert(const Key& key, ArrayBag<Key, Value>* item)
+	{
+		do
+		{
+			int i = 0;
+
+			int hashIndex = hashFunction(key, i);
+
+			if (hashIndex > capacity)
+			{
+				ArrayBag<Key, Value> ** temp = new ArrayBag<Key, Value>*[capacity];
+				for (int k=0; k < capacity; k++)
+				{
+					temp[k] = table[k];
+				}
+				delete[] table;
+				table = temp;
+			}
+
+			if (table[hashIndex] == nullptr)
+			{
+				table[hashIndex] = item;
+				itemCount++;
+				return hashIndex + i;
+			}
+
+			i++;
+			
+		} while (true);
+
+	}
+
+	int hashFunction(const Key & product, int i)
+	{
+
+		int first = product[0];
+		int third = product[2];
+		int combo = first + third;
+		combo = combo % capacity;
+		combo += (product[1] + i);
+		return combo;
+	}
+
+	/*
+	friend ostream& operator << (ostream& stream, ArrayBag<T>& bag)
+	{
+		stream << "The bag contains " << static_cast<int>(bag.getCurrentSize()) << " items:" << endl;
+		for (int i = 0; i < bag.getCurrentSize(); i++)
+		{
+			stream << bag.getIndexValue(i) << " ";
+		}  // end for
+		stream << endl << endl;
+		return stream;
+	}  // end displayBag
+	*/
+};
+
+
+
+void enableDebug(bool bvalue)
+{
+	if (!bvalue) return;
+
+	int tmpFlag = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+
+	// Turn on leak-checking bit.
+	tmpFlag |= _CRTDBG_LEAK_CHECK_DF;
+
+	// Turn off CRT block checking bit.
+	tmpFlag &= ~_CRTDBG_CHECK_CRT_DF;
+
+	// Set flag to the new value.
+	_CrtSetDbgFlag(tmpFlag);
+}
+
+void main()
+{
+
+
+	ifstream inFile;
+	string product = "";
+	string price = "";
+	ArrayBag<string, string> bag;
+
+	inFile.open("UProducts.csv");
+
+	if (inFile.is_open())
+	{
+		while (!inFile.eof())
+		{
+			getline(inFile, product, ',');
+			getline(inFile, price);
+
+			bag.add(product, price);
+
+		}
+
+	}
+	else
+	{
+		cerr << "File Not found";
+	}
+
+	getchar();
+
+}  // end main
+
+
