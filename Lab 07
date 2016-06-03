@@ -1,0 +1,72 @@
+#include <cstdlib>
+#include <iostream>
+#include <string>
+#include <memory>
+#include<fstream>
+#include<vector>
+
+using namespace std;
+
+template<typename ItemType>
+void quickSort(vector<ItemType> A, int first, int last)
+{
+	if (first < last)
+	{
+		// Create the partition: S1 | Pivot | S2
+		int pivotIndex = Partition(A, first, last);
+
+		// Sort subarrays S1 and S2
+		quickSort(A, first, pivotIndex - 1);
+		quickSort(A, pivotIndex + 1, last);
+	}// end if
+
+}  // end quickSort
+
+
+template<typename ItemType>
+int Partition(vector<ItemType> A, int first, int last)
+{
+	int pivot = getNumber(A[last]);
+	int partitionIndex = first;
+	for (int i = first; i < last; i++)
+	{
+		if (getNumber(A[i]) <= pivot)
+		{
+			swap(A[i],A[partitionIndex]);
+			partitionIndex++;
+		}
+	}
+	swap(A[partitionIndex], A[last]);
+		return partitionIndex;
+}
+
+
+int getNumber(string word)
+{
+	int a = word[0];
+	return a;
+}
+
+
+int main()
+{
+	vector<string> productName;
+	ifstream inFile;
+
+	inFile.open("UProducts.csv");
+
+	while (inFile.peek() != EOF)
+	{
+		string product;
+		string price;
+		getline(inFile, product, ',');
+		getline(inFile, price, '\n');
+		productName.push_back(product);
+		quickSort(productName, 0, productName.size());
+	}
+	
+	
+
+	getchar();
+
+}
